@@ -1,0 +1,1068 @@
+/**
+ * JavaCC template file created by SF JavaCC plugin 1.5.28+ wizard for JavaCC 1.5.0+
+ */
+options
+{
+  static = true;
+  ignore_case = true;
+  //DEBUG_PARSER = true;
+}
+
+PARSER_BEGIN(minilengcompiler)
+package JavaCC;
+
+import java.io.FileNotFoundException;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
+import tablaSimbolos.*;
+
+
+public class minilengcompiler
+{
+  public static boolean verbose = false;
+  public static boolean panicmode = false;
+
+  // Semantico
+  public static int nivel = 0;
+  public static Tabla_simbolos tabla;
+
+  // Para evitar sacar siempre el mismo error
+  
+  public static int nivelMaxError = 1;
+  public static int nivelError = 0;
+  public static int lineaError = 0;
+  public static int columnaError = 0;
+  
+  
+
+ private static void errorSintactico(Exception e, String informacion) {
+    String mensajeError = e.getMessage();
+    //System.out.println(mensajeError);
+    Token t =  getToken(1); // porque es como una pila inversa, el 0 es el del lookahead
+	if (nivelError == nivelMaxError && columnaError == t.beginColumn && lineaError == t.beginLine) {
+				System.out.print("WARNING SINTACTICO("+t.beginLine+","+t.beginColumn+"): ");
+				System.out.println("Ignorado el simbolo "+t.image+", se pasa al siguiente.");
+                nivelError = 0;
+                getNextToken();
+        }
+        else {
+               System.out.print("ERROR SINTACTICO("+t.beginLine+","+t.beginColumn+"): ");
+				System.out.println("Encontrado simbolo "+t.image+" cuando esperaba otra cosa.");
+   				nivelError++;
+                if (t.beginLine != lineaError && t.beginColumn != columnaError) {
+                  nivelError = 1;
+                }
+                lineaError = t.beginLine;
+                columnaError = t.beginColumn;
+        }
+
+  }
+
+  private static void warningPanicMode(Exception e) {
+//    String mensajeError = e.getMessage();
+//        
+//	Pattern pattern = Pattern.compile("Encountered (\" .*) at");
+//	Matcher matcher = pattern.matcher(mensajeError);
+//	matcher.find();
+//	String token = matcher.group(1);
+//
+//	pattern = Pattern.compile("at line ([0-9]+),");
+//	matcher = pattern.matcher(mensajeError);
+//	matcher.find();
+//	String linea = matcher.group(1);
+//
+//	pattern = Pattern.compile(", column ([0-9]+).");
+//	matcher = pattern.matcher(mensajeError);
+//	matcher.find();
+//	String columna = matcher.group(1);
+//
+//	pattern = Pattern.compile("(Was expecting:)");
+//	matcher = pattern.matcher(mensajeError);
+//	matcher.find();
+//	boolean encontrado = true;
+//	String decidir = "";
+//	try { 
+//	decidir = matcher.group(1);
+//} catch (IllegalStateException i) {
+//    encontrado = false;
+//}
+//	String esperaba = "nada";
+//	if (encontrado) {
+//	  pattern = Pattern.compile("Was expecting:((.*\n)*)");
+//	  matcher = pattern.matcher(mensajeError);
+//	  matcher.find();
+//	  esperaba = matcher.group(1);
+//	}
+//	else {
+//	  pattern = Pattern.compile("Was expecting one of:((.*\n)*)");
+//	  matcher = pattern.matcher(mensajeError);
+//	  matcher.find();
+//	  esperaba = matcher.group(1);
+//	}
+//	System.out.print("WARNING SINTACTICO (PANIC MODE ACTIVADO)("+linea+","+columna+"): ");
+//	System.out.println("Encontrado "+token+" cuando esperaba: "+esperaba);
+  }
+
+ 
+  public static void main(String args []) throws ParseException
+  {
+//    minilengcompiler parser = new minilengcompiler(System.in);
+//	if (args.length == 2 && args[1].equals("-v")) {
+//	  minilengcompiler.verbose = true;
+//	  System.out.println("VERBOSE ACTIVADO");
+//	}
+
+	// El 0 siempre es el fichero
+	for(int i = 1; i < args.length; i++) {
+	  switch(args[i]) {
+	    case "-v":
+	    	System.out.println("VERBOSE TRUEEEE");
+	    	minilengcompiler.verbose = true;
+	    	break;
+	    case "-p": // panic mode
+	    	System.out.println("PANIC MODE TRUEE");
+	    	minilengcompiler.panicmode = true;
+	    	break;
+	  }
+	}
+
+	// Inicializar la tabla de simbolos
+	tabla = new Tabla_simbolos();
+	tabla.inicializar_tabla();
+	
+	try{
+	    System.out.println("COMPRUEBO EL FICHERO: "+args[0]);
+    	minilengcompiler parser = new minilengcompiler(new java.io.FileInputStream(args[0]));
+    }
+    catch (FileNotFoundException ex)
+    {
+    }
+try { 
+	  minilengcompiler.one_line();
+	 }
+      catch (Exception e)
+      {
+        System.out.println("NOK.");
+        System.out.println(e.getMessage());
+        minilengcompiler.ReInit(System.in);
+      }
+      catch (Error e)
+      {
+        //System.out.println("Oops.");
+        System.out.println(e.getMessage());
+        String mensajeError = e.getMessage();
+        
+		Pattern pattern = Pattern.compile("line ([0-9]+)");
+		Matcher matcher = pattern.matcher(mensajeError);
+		matcher.find();
+		String linea = matcher.group(1);
+
+		pattern = Pattern.compile("column ([0-9]+)");
+		matcher = pattern.matcher(mensajeError);
+		matcher.find();
+		String columna = matcher.group(1);
+
+		pattern = Pattern.compile("Encountered: (.*) after :");
+		matcher = pattern.matcher(mensajeError);
+		matcher.find();
+		String simbolo = matcher.group(1);
+		
+		System.out.println("ERROR LEXICO ("+ linea + ", " + columna + "): simbolo no reconocido: " + simbolo);
+      }
+      //minilengcompiler.mostrarEstadisticas();
+  }
+}
+
+PARSER_END(minilengcompiler)
+
+SKIP :
+{
+  " "
+| "\r"
+| "\t"
+| "\n"
+| "%%" : COMMENT
+| "%" : COMMENTONELINE
+}
+
+< COMMENTONELINE > SKIP:
+{
+  "\n" : DEFAULT
+}
+
+< COMMENT > SKIP :
+{
+"%%" : DEFAULT	
+}
+
+< COMMENT > MORE :
+{
+< ~[] >
+}
+
+< COMMENTONELINE > MORE :
+{
+< ~[] >
+}
+
+/* PALABRAS RESERVADAS */
+
+TOKEN : /* CONTROL */
+{
+  < tPROGRAMA : "programa" >
+  {
+    if (minilengcompiler.verbose) {
+      System.out.println("PROGRAMA");
+   		Estadisticas.tprograma++;
+  	}
+  }
+| < tVAR : "var" >
+  {
+    if (minilengcompiler.verbose) {
+      	System.out.println("VAR");
+   		Estadisticas.tvar++;
+  	}
+  }
+| < tAND : "and" >
+  {
+    if (minilengcompiler.verbose) {
+        System.out.println("AND");
+   		Estadisticas.tand++;
+  	}
+  }
+| < tOR : "or" >
+  {
+    if (minilengcompiler.verbose) {
+        System.out.println("OR");
+   		Estadisticas.tor++;
+  	}
+  }
+| < tNOT : "not" >
+  {
+    if (minilengcompiler.verbose) {
+        System.out.println("not");
+   		Estadisticas.tnot++;
+  	}
+  }
+| < tPRINCIPIO : "principio" >
+  {
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tprincipio++;
+   		System.out.println("PRINCIPIO");
+  	}    
+  }
+| < tFIN : "fin" >
+  {
+    System.out.println("FIN");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tfin++;
+  	}
+  }
+| < tSI : "si" >
+  {
+    System.out.println("SI");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tsi++;
+  	}
+  }
+| < tENT : "ent" >
+  {
+    System.out.println("ENT");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tent++;
+  	}
+  }
+| < tSI_NO : "si_no" >
+  {
+    System.out.println("SI_NO");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tsi_no++;
+  	}
+  }
+| < tFSI : "fsi" >
+  {
+    System.out.println("FSI");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tfsi++;
+  	}
+  }
+| < tMQ : "mq" >
+  {
+    System.out.println("mq");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tmq++;
+  	}
+  }
+| < tFMQ : "fmq" >
+  {
+    System.out.println("fmq");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tfmq++;
+  	}
+  }
+}
+
+TOKEN : /* OPERADORES ARITMÉTICOS */
+{
+  < tMAS : "+" >
+  {
+	System.out.println("SUMA");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tmas++;
+  	}
+ }
+| < tMENOS : "-" >
+{	
+	System.out.println("RESTA");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tmenos++;
+  	}
+}
+| < tMUL : "*" >
+{
+	System.out.println("MULTIPLICACION");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tmul++;
+  	}
+}
+| < tDIVENT : "/" >
+{
+	System.out.println("DIVISION");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tdivent++;
+  	}
+}
+| < tDIVDECIMAL : "div" >
+{
+	System.out.println("DIVISION");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tdiv++;
+  	}
+}
+| < tMOD : "mod" >
+{
+	System.out.println("MODULO");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tmod++;
+  	}
+}
+}
+
+TOKEN : /* ENTRADA / SALIDA */
+{
+  < tESCRIBIR : "escribir" >
+  {
+	System.out.println("ESCRIBIR");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tescribir++;
+  	}
+}
+| < tLEER : "leer" >
+{
+	System.out.println("LEER");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tleer++;
+  	}
+}
+}
+
+TOKEN : /* CLASE PARAMETROS */
+{
+  < tVAL : "val" >
+  {
+	System.out.println("val");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tval++;
+  	}
+}
+| < tREF : "ref" >
+{
+	System.out.println("ref");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tref++;
+  	}
+}
+}
+
+TOKEN : /* TIPOS DATOS */
+{
+  < tENTERO : "entero" >
+  {
+	System.out.println("ENTERO");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tentero++;
+  	}
+  }
+| < tBOOLEANO : "booleano" >
+{
+	System.out.println("BOOLEANO");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tbooleano++;
+  	}
+}
+| < tCARACTER : "caracter" >
+{
+	System.out.println("caracter");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tcaracter++;
+  	}
+}
+| < tTRUE : "true" >
+{
+	System.out.println("TRUE");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.ttrue++;
+  	}
+}
+| < tFALSE : "false" >
+{
+	System.out.println("FALSE");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tfalse++;
+  	}
+}
+}
+
+TOKEN : /* FUNCIONES */
+{
+  < tENTACAR : "entacar" >
+  {
+	System.out.println("ENTACAR");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tentacar++;
+  	}
+}
+| < tCARAENT : "caraent" >
+{
+	System.out.println("CARAENT");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tcaraent++;
+  	}
+}
+| < tACCION : "accion" >
+{
+	System.out.println("ACCION");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.taccion++;
+  	}
+}
+}
+
+TOKEN : /* OPERADORES */
+{
+  < tMAYOR : ">" >
+  {
+	System.out.println("MAYOR");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tmayor++;
+  	}
+}
+| < tMENOR : "<" >
+{
+	System.out.println("MENOR");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tmenor++;
+  	}
+}
+| < tIGUAL : "=" >
+{
+	System.out.println("IGUAL");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tigual++;
+  	}
+}
+| < tMAI : ">=" >
+{
+	System.out.println("MAI");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tmai++;
+  	}
+}
+| < tMEI : "<=" >
+{
+	System.out.println("MEI");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tmei++;
+  	}
+}
+| < tNI : "<>" >
+{
+	System.out.println("NI");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tni++;
+  	}
+}
+| < tOPAS : ":=" >
+{
+	System.out.println("OPAS");
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.topas++;
+  	}
+}
+}
+
+TOKEN: /* SEPARADORES */
+{
+  < tPTOCOMA : ";" >
+  {
+System.out.println("PTOCOMA");
+}
+| < tCOMA : "," >
+{
+System.out.println("COMA");
+}
+| < tABREPARENTESIS : "(" >
+{
+System.out.println("ABREPARENTESIS");
+}
+| < tCIERREPARENTESIS : ")" >
+{
+System.out.println("CIERREPARENTESIS");
+}
+}
+
+TOKEN: /* IDENTIFICADORES */
+{
+  < tIDENTIFICADOR : (["a"-"z","_"])+(["a"-"z","0"-"9","_"])*(["a"-"z","0"-"9"]) | ["a"-"z"] >
+  {
+    System.out.println("IDENTIFICADOR (Valor: " + matchedToken + ")");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tidentificador++;
+  	}
+  }
+| < tCONSTENTERA : (["0"-"9"])+ >
+  {
+    System.out.println("NUMENTERO (Valor: " + matchedToken + ")");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tconstentera++;
+  	}
+  }
+| < tCONSTCHAR : "\"" (~[]) "\"" >
+  {
+    System.out.println("CAR (Valor: " + matchedToken + ")");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tconstchar++;
+  	}
+  }
+| < tCONSTCAD : "\""(~["\""])*"\"" >
+  {
+    System.out.println("CADENA (Valor: " + matchedToken + ")");
+    if (minilengcompiler.verbose) { 
+   		Estadisticas.tconstcad++;
+  	}
+  }
+}
+
+
+// TODO creo que lo siguiente es inutil
+TOKEN :
+{
+  < CONSTANT : (< DIGIT >)+ >
+  {
+	if (minilengcompiler.verbose) { 
+   		Estadisticas.tconstant++;
+  	}
+  }
+| < #DIGIT : [ "0"-"9" ] >
+}
+
+// PANIC MODE
+void ptocoma():
+{}
+{
+  try {
+    < tPTOCOMA >
+  } catch (Exception e) {
+    if (minilengcompiler.panicmode) {
+      	minilengcompiler.warningPanicMode(e);
+	    Token t;
+	    do {
+	      t = getNextToken();
+	    } while (t.kind != tPTOCOMA && t != null && t.kind != EOF);
+  	}
+  	else {
+  	  throw e;
+  	}
+  }
+}
+
+// Programa ::= <tPROGRAMA> <tIDENTIFICADOR> ";" declaracion_variables declaracion_acciones bloque_sentencias
+void programa():
+{}
+{
+  try { 
+  < tPROGRAMA > <tIDENTIFICADOR > ptocoma() declaracion_variables() declaracion_acciones() bloque_sentencias()
+} catch(Exception e) {
+  System.out.println("ERROR AQUI");
+  minilengcompiler.errorSintactico(e, "programa");
+}
+}
+
+// declaracion_variables ::= ( declaracion ";" )*
+void declaracion_variables():
+{ }
+{
+  try { 
+  (declaracion() ptocoma() )*
+} catch(Exception e) {
+  minilengcompiler.errorSintactico(e, "declaracion_variables");
+}
+}
+
+// declaracion ::= tipo_variables() identificadores()
+void declaracion():
+{
+  Tipo_variable tipoVar;
+  Simbolo s;
+}
+{
+  try { 
+  tipoVar = tipo_variables()
+  {
+    s = new Simbolo("", tipoVar, Clase_parametro.REF, 0, 0); // El nivel y direccion da igual porque luego se machaca
+  }
+  identificadores(s)
+} catch(Exception e) {
+  minilengcompiler.errorSintactico(e, "declaracion");
+}
+}
+
+//tipo_variables ::= <tENTERO> | <tCARACTER> | <tBOOLEANO>
+Tipo_variable tipo_variables():
+{}
+{
+  try { 
+  < tENTERO > { return Tipo_variable.ENTERO; }
+  | < tCARACTER > { return Tipo_variable.CARACTER; }
+  | < tBOOLEANO > { return Tipo_variable.BOOLEANO; }
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "tipo_variables");
+}
+}
+
+
+// identificadores ::= <tIDENTIFICADOR> ( "," <tIDENTIFICADOR> )*
+void identificadores(Simbolo s):
+{
+  Token t1, t2 = null;
+}
+{
+  try { 
+  t1 = < tIDENTIFICADOR >
+  {
+    Errores.validarIdentificador(t1, s);
+  }
+    ( < tCOMA >
+    t2 =  <tIDENTIFICADOR >
+    {
+     Errores.validarIdentificador(t2, s);
+	}
+    )*
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "identificadores");
+}
+}
+
+// declaracion_acciones ::= ( declaracion_accion )*
+void declaracion_acciones():
+{ }
+{
+  try { 
+  ( declaracion_accion() )*
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "declaracion_acciones");
+}
+}
+
+// declaracion_accion ::= cabecera_accion() ";" declaracion_variables() declaracion_acciones() bloque_sentencias()
+void declaracion_accion():
+{
+}
+{
+  try { 
+  cabecera_accion()
+  ptocoma()
+  declaracion_variables()
+  declaracion_acciones()
+  bloque_sentencias()
+  {
+    minilengcompiler.tabla.eliminar_variables_parametros(minilengcompiler.nivel);
+    minilengcompiler.nivel--;
+  }
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "declaracion_accion");
+}
+}
+
+// cabecera_accion ::= <tACCION> <tIDENTIFICADOR> parametros_formales()
+void cabecera_accion():
+{
+  Token t;
+  Simbolo s = null;
+}
+{
+  try { 
+  < tACCION >
+  t = < tIDENTIFICADOR >
+  {
+    try {
+      s = minilengcompiler.tabla.introducir_accion(t.image, minilengcompiler.nivel, 0); 
+    } catch (SimboloYaExistenteException e) {
+      Errores.error_semantico("Identificador de accion duplicado");
+    }
+  }
+  parametros_formales(s) // Se le indica si ha habido exito para asociarlos o no
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "cabecera_accion");
+}
+}
+
+// parametros_formales ::= ( < tABREPARENTESIS > lista_parametros() < tCIERREPARENTESIS >)?
+void parametros_formales(Simbolo s):
+{
+}
+{
+  try { 
+  (< tABREPARENTESIS > lista_parametros(s) < tCIERREPARENTESIS >)?
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "parametros_formales");
+}
+}
+
+//lista_parametros ::= parametros ( < tPTOCOMA > parametros )* 
+void lista_parametros(Simbolo s):
+{ }
+{
+  try { 
+  parametros(s) ( ptocoma() parametros(s) )*
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "lista_parametros");
+}
+}
+
+// parametros ::= clase_parametros tipo_variables identificadores
+void parametros(Simbolo accionParaAsociar):
+{
+  Simbolo identificador;
+  Clase_parametro clase;
+  Tipo_variable tipo;
+}
+{
+  try { 
+  clase = clase_parametros()
+  tipo = tipo_variables()
+  {
+    identificador = new Simbolo("", tipo, clase, 0, 0);
+    identificador.setAccionAsociada(accionParaAsociar);      
+  }
+  identificadores(identificador)
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "parametros");
+}
+}
+
+// clase_parametros ::= < tVAL > | < tREF >
+Clase_parametro clase_parametros():
+{
+}
+{
+  try { 
+  < tVAL > { return Clase_parametro.VAL; }
+| < tREF > { return Clase_parametro.REF; }
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "clase_parametros");
+}
+}
+
+// bloque_sentencias ::= <tPRINCIPIO> lista_sentencias <tFIN>
+void bloque_sentencias():
+{ }
+{
+  try { 
+  < tPRINCIPIO > lista_sentencias() <tFIN >
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "bloque_sentencias");
+}
+}
+
+// lista_sentencias ::= (sentencia)*
+void lista_sentencias():
+{
+}
+{
+  try { 
+  ( sentencia() )*
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "lista_sentencias");
+}
+}
+
+//sentencia ::= leer ";"
+// | escribir ";"
+// | asignacion
+// | invocacion_accion
+// | seleccion
+// | mientras_que
+void sentencia():
+{
+}
+{
+  try { 
+  leer() ptocoma()
+| escribir() ptocoma()
+| < tIDENTIFICADOR > (asignacion() | invocacion_accion())
+| seleccion()
+| mientras_que()
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "sentencia");
+}
+}
+
+// leer ::= <tLEER> "(" lista_asignables ")"
+void leer():
+{
+}
+{
+  try { 
+  < tLEER > <tABREPARENTESIS > lista_asignables() < tCIERREPARENTESIS >
+} catch(Exception e) {
+  minilengcompiler.errorSintactico(e, "leer");
+}
+}
+
+//lista_asignables ::= identificadores
+void lista_asignables():
+{
+}
+{
+  try { 
+  identificadores(null)
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "lista_asignables");
+}
+}
+
+// escribir ::= <tESCRIBIR> "(" lista_escribibles ")"
+void escribir():
+{
+}
+{
+  < tESCRIBIR > <tABREPARENTESIS > lista_escribibles() < tCIERREPARENTESIS >
+}
+
+// lista_escribibles ::= lista_expresiones
+void lista_escribibles():
+{ }
+{
+  try { 
+  lista_expresiones()
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "lista_escribibles");
+}
+}
+
+// asignación ::= <tIDENTIFICADOR> <tOPAS> expresion ";"
+void asignacion():
+{
+}
+{
+  try { 
+  <tOPAS > expresion() ptocoma()
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "asignacion");
+}
+}
+
+// invocacion_accion ::= <tIDENTIFICADOR> argumentos ";"
+void invocacion_accion():
+{
+}
+{
+  try { 
+  (argumentos())? ptocoma()
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "invocacion_accion");
+}
+}
+
+// mientras_que ::= <tMQ> expresion lista_sentencias <tFMQ>
+void mientras_que():
+{
+}
+{
+  try { 
+  < tMQ > expresion() lista_sentencias() < tFMQ >
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "mientras_que");
+}
+}
+
+// seleccion ::= <tSI> expresion lista_sentencias (tSI_NO expresion lista_sentencias tFSI_NO)? <tFSI>
+void seleccion():
+{
+}
+{
+  try { 
+  < tSI > expresion() < tENT > lista_sentencias() (< tSI_NO > lista_sentencias())? < tFSI >
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "seleccion");
+}
+}
+
+// argumentos ::= "(" ( lista_expresiones )? ")"
+void argumentos():
+{
+}
+{
+  try { 
+  < tABREPARENTESIS > (lista_expresiones())? < tCIERREPARENTESIS >
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "argumentos");
+}
+}
+
+// lista_expresiones ::= ...
+void lista_expresiones():
+{
+}
+{
+  try { 
+  expresion() (< tCOMA > expresion())*
+} catch(Exception e) {
+  minilengcompiler.errorSintactico(e, "lista_expresiones");
+}
+}
+
+// expresión ::= expresión_simple (operador_relacional expresion_simple)?
+void expresion():
+{ }
+{
+  try { 
+  expresion_simple() (operador_relacional() expresion_simple())?
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "expresion");
+}
+}
+
+// operador_relacional ::= <tIGUAL>
+// | <tMA>
+// | <tME>
+// | <tMEI>
+// | <tMAI>
+// | <tNI>
+void operador_relacional():
+{
+}
+{
+  try { 
+  < tIGUAL >
+| < tMENOR >
+| < tMAYOR >
+| < tMEI >
+| < tMAI >
+| < tNI >
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "operacior_relacional");
+}
+}
+
+//expresion_simple ::= (tMAS | tMENOS)? termino (operador_aditivo | or)? termino)*
+// el signo se decide directamente en factor
+void expresion_simple():
+{
+}
+{
+  try { 
+  termino() (operador_aditivo() termino())*
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "expresion_simple");
+}
+}
+
+
+//operador_aditivo ::= <tMAS>
+// | <tMENOS>
+// | <tOR>
+void operador_aditivo():
+{
+}
+{
+  try { 
+  < tMAS >
+| < tMENOS >
+| < tOR >
+}
+  catch(Exception e) {
+    minilengcompiler.errorSintactico(e, "operador_aditivo");
+  }
+}
+
+//termino ::= factor (operador_multiplicativo factor)*
+void termino():
+{
+}
+{
+  try { 
+  factor() (operador_multiplicativo() factor())*
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "termino");
+}
+}
+
+
+//operador_multiplicativo ::= <tMUL>
+// | <tDIV>
+// | <tMOD>
+// | <tAND>
+void operador_multiplicativo():
+{
+}
+{
+  try { 
+  < tMUL >
+| < tDIVENT >
+| < tDIVDECIMAL >
+| < tMOD >
+| < tAND >
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "operador_multiplicativo");
+}
+}
+
+// factor := ...
+void factor():
+{
+}
+{
+  try {
+  < tMAS > factor()
+| < tMENOS > factor()
+| < tNOT > factor()
+| < tABREPARENTESIS > expresion() < tCIERREPARENTESIS >
+| < tENTACAR > < tABREPARENTESIS > expresion() < tCIERREPARENTESIS >
+| < tCARAENT > < tABREPARENTESIS > expresion() < tCIERREPARENTESIS >
+| < tIDENTIFICADOR >
+| < tCONSTENTERA >
+| < tCONSTCHAR >
+| < tCONSTCAD >
+| < tTRUE >
+| < tFALSE >
+} catch (Exception e) {
+  minilengcompiler.errorSintactico(e, "factor");
+}
+}
+
+int one_line() :
+{}
+{
+  try { 
+  programa() < EOF >
+} catch(Exception e) {
+  minilengcompiler.errorSintactico(e, "reconociendo el programa");
+}
+  {
+    //System.out.println("programa reconocido");
+    return 0;
+  }
+}
